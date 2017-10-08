@@ -340,7 +340,7 @@ class HTTPServer() {
 }
 
 class HTTPApplication() {
-	var port = 8003;
+	var port = 8000;
 
 	def __init__(var handlers, var port = 8003) {
 		self.port = port;

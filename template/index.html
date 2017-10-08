@@ -1,0 +1,49 @@
+{% set title %}The Lemon Programming Language{% end %}
+{% set home %}1{% end %}
+{% include template/base.html %}
+    <div>
+    <div class="summary">
+    <p>
+    <strong>Lemon</strong> is an open source programming language.
+    </p>
+    <div><a class="button" href="/downloads">Downloads</a><a class="button" href="/documentation">Documentation</a></div>
+
+    </div>
+    <div class="example">
+    <pre class="prettyprint"><code>
+def hello(var name) {
+    print('Hello', name);
+}
+
+hello('World');
+    </code></pre>
+    </div>
+    </div>
+    <div style="clear:both"></div>
+    <div class="grid">
+    <div>
+    <h4>Easy to Learn</h4>
+    <p>
+    Lemon syntax is like C/C++ and Java with dynamic type.
+    </p>
+    </div>
+        <div>
+    <h4>Small Codebase</h4>
+    <p>
+    Lemon implementation is 25k sloc ANSI C without dependency.
+    </p>
+        </div>
+        <div>
+    <h4>Object-oriented</h4>
+    <p>
+    Everything is object, integer, number, function, class even type.
+    </p>
+    </div>
+    <div>
+    <h4>Open Source and Free</h4>
+    <p>
+    Lemon licensed under MIT Public License, business friendly.
+    </p>
+        </div>
+    </div>
+{% end %}

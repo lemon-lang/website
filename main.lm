@@ -1,0 +1,42 @@
+import 'http.lm';
+
+class IndexHandler(http.HTTPHandler) {
+	def GET() {
+		return self.render('template/index.html');
+	}
+}
+
+class DocumentationHandler(http.HTTPHandler) {
+	def GET() {
+		return self.render('template/documentation.html');
+	}
+}
+
+class DownloadsHandler(http.HTTPHandler) {
+	def GET() {
+		return self.render('template/downloads.html');
+	}
+}
+
+class LibrariesHandler(http.HTTPHandler) {
+	def GET() {
+		return self.render('template/libraries.html');
+	}
+}
+
+def main() {
+	var handlers = {
+		'/': IndexHandler,
+		'/documentation': DocumentationHandler,
+		'/downloads': DownloadsHandler,
+		'/libraries': LibrariesHandler,
+		'/static/.*$': http.HTTPStaticFileHandler,
+	};
+
+	var app = http.HTTPApplication(handlers);
+	var server = http.HTTPServer(app);
+
+	server.serve_forever();
+}
+
+main();

@@ -1,0 +1,367 @@
+import 'os';
+
+var Template;
+
+var TEXT = 'TEXT';
+var VALUE = 'VALUE';
+var BLOCK = 'BLOCK';
+var ELSE = 'ELSE';
+var END = 'END';
+
+class Node() {
+	def __init__(var value) {
+		self.value = value;
+		self.children = [];
+	}
+
+	def print(var level) {
+		var prefix = '';
+		for (var i = 0; i < level; i+=1) {
+			prefix += '    ';
+		}
+		print(prefix, self);
+		if (self.children) {
+			for (var c in self.children) {
+				c.print(level + 1);
+			}
+		}
+	}
+}
+
+class RootNode(Node) {
+	def render(var dict) {
+		var values = [];
+		for (var c in self.children) {
+			values.append(c.render(dict));
+		}
+		return ''.join(values);
+	}
+
+	def __string__() {
+		return '<RootNode>';
+	}
+}
+
+class TextNode(Node) {
+	def render(var dict) {
+		return self.value;
+	}
+
+	def __string__() {
+		return '<TextNode: "{}">'.format(self.value);
+	}
+}
+
+class ValueNode(Node) {
+	def render(var dict) {
+		if ('.' in self.value) {
+			var name, item;
+			name, item = self.value.split('.');
+			return string(dict[name][item]);
+		}
+		return string(dict[self.value]);
+	}
+
+	def __string__() {
+		return '<ValueNode: "{}">'.format(self.value);
+	}
+}
+
+class SetNode(Node) {
+	def render(var dict) {
+		var values = [];
+		for (var c in self.children) {
+			values.append(c.render(dict));
+		}
+		dict[self.value] = ''.join(values);
+
+		return '';
+	}
+
+	def __string__() {
+		return '<SetNode: "{}">'.format(self.value);
+	}
+}
+
+class IfNode(Node) {
+	def __init__(var *args) {
+		super().__init__(*args);
+		self.elsenode = nil;
+	}
+	def render(var dict) {
+		var values = [];
+		var truth = false;
+		var left, op, right, value;
+		left, op, right = self.value.split(' ');
+		if (op && right) {
+			if (right[0] == '"') {
+				value = right[1:-1];
+			} else if (right[0] in "0123456789") {
+				value = integer(right[1:-1]);
+			} else {
+				value = dict[right];
+			}
+
+			if (op == '==' && dict[left] == value) {
+				truth = true;
+			} else if (op == '>' && dict[left] > value) {
+				truth = true;
+			} else if (op == '<' && dict[left] < value) {
+				truth = true;
+			}
+		} else {
+			if (left in dict && dict[left]) {
+				truth = true;
+			}
+		}
+
+		if (truth) {
+			for (var c in self.children) {
+				values.append(c.render(dict));
+			}
+		} else if (self.elsenode) {
+			for (var c in self.elsenode.children) {
+				values.append(c.render(dict));
+			}
+		}
+
+		return ''.join(values);
+	}
+
+	def print(var level) {
+		super.print(level);
+		self.elsenode.print(level);
+	}
+
+	def __string__() {
+		return '<IfNode: "{}">'.format(self.value);
+	}
+}
+
+class ElseNode(Node) {
+	def render(var dict) {
+		var values = [];
+		for (var c in self.children) {
+			values.append(c.render(dict));
+		}
+		return ''.join(values);
+	}
+
+	def __string__() {
+		return '<ElseNode>';
+	}
+}
+
+class ForNode(Node) {
+	def render(var dict) {
+		var values = [];
+		var item, _, name;
+		item, _, name = self.value.split(' ');
+
+		var value = dict[name];
+		for (var v in value) {
+			dict[item] = v;
+			var children = [];
+			for (var c in self.children) {
+				children.append(c.render(dict));
+			}
+			values.append(''.join(children));
+			delete dict[item];
+		}
+
+		return ''.join(values);
+	}
+
+	def __string__() {
+		return '<ForNode: "{}">'.format(self.value);
+	}
+}
+
+class IncludeNode(Node) {
+	def render(var dict) {
+		var file = os.open(self.value);
+		var content = os.read(file);
+		os.close(file);
+
+		var t = Template(content);
+		t.compile();
+
+		var values = [];
+		for (var c in self.children) {
+			values.append(c.render(dict));
+		}
+
+		content = ''.join(values);
+
+		var _content_ = '';
+		if ('_content_' in dict) {
+			_content_ = dict['_content_'];
+		}
+		dict['_content_'] = content;
+
+		content = t.render(dict);
+		dict['_content_'] = _content_;
+
+		return content;
+	}
+
+	def __string__() {
+		return '<IncludeNode: "{}">'.format(self.value);
+	}
+}
+
+class Text() {
+	def __init__(var text) {
+		self.text = text;
+		if (text.startswith('{{') && text.endswith('}}')) {
+			self.type = VALUE;
+			self.value = text[2:-2].trim();
+		} else if (text.startswith('{%') && text.endswith('%}')) {
+			self.value = text[2:-2].trim();
+
+			if (self.value.startswith('end')) {
+				self.type = END;
+			} else if (self.value.startswith('else')) {
+				self.type = ELSE;
+			} else {
+				self.type = BLOCK;
+			}
+		} else {
+			self.type = TEXT;
+			self.value = text;
+		}
+	}
+
+	def node() {
+		if (self.type == TEXT) {
+			return TextNode(self.value);
+		}
+		if (self.type == VALUE) {
+			return ValueNode(self.value);
+		}
+		if (self.type == ELSE) {
+			return ElseNode(self.value);
+		}
+
+		if (self.type == BLOCK) {
+			if (self.value.startswith('set ')) {
+				return SetNode(self.value[4:]);
+			}
+			if (self.value.startswith('if ')) {
+				return IfNode(self.value[3:]);
+			}
+			if (self.value.startswith('for ')) {
+				return ForNode(self.value[4:]);
+			}
+			if (self.value.startswith('include ')) {
+				return IncludeNode(self.value[8:]);
+			}
+		}
+
+		print(self.type, self.value);
+		print("something wrong\n");
+	}
+
+	def __string__() {
+		return '<Text: {}, "{}">'.format(self.type, self.value);
+	}
+}
+
+class _Template() {
+	def __init__(var text) {
+		var length;
+		self.texts = [];
+
+		var start = 0;
+		var state = 0; /* 1: {, 2: {{ , 3: {{} 4: {{...}, 5: {% , 6: {%...%  */
+
+		var i;
+		length = text.__length__();
+		for (i = 0; i < length; i += 1) {
+			var t = text[i];
+			if (state == 0 && t == '{') {
+				state = 1;
+				self.texts.append(Text(text[start:i]));
+				start = i;
+			} else if (state == 1 && t == '{') {
+				state = 2;
+			} else if (state == 1 && t == '%') {
+				state = 5;
+			} else if (state == 2 && t == '}') {
+				state = 3;
+			} else if (state == 5 && t == '%') {
+				state = 6;
+			} else if (state == 3 && t == '}') {
+				state = 0;
+				self.texts.append(Text(text[start:i + 1]));
+				start = i + 1;
+			} else if (state == 6 && t == '}') {
+				state = 0;
+				self.texts.append(Text(text[start:i + 1]));
+				start = i + 1;
+			} else if (state == 1) {
+				state = 0;
+			}
+		}
+		self.texts.append(Text(text[start:length]));
+	}
+
+	def compile() {
+		self.root = RootNode(nil);
+
+		var stack = [self.root];
+		for (var t in self.texts) {
+			var node;
+			if (t.type == TEXT && t.value) {
+				node = t.node();
+				stack[-1].children.append(node);
+			} else if (t.type == VALUE) {
+				node = t.node();
+				stack[-1].children.append(node);
+			} else if (t.type == BLOCK) {
+				node = t.node();
+				stack[-1].children.append(node);
+				stack.append(node);
+			} else if (t.type == ELSE) {
+				node = t.node();
+				stack[-1].elsenode = node;
+				stack.append(node);
+			} else if (t.type == END) {
+				node = stack.pop();
+				while (node.__instanceof__(ElseNode)) {
+					node = stack.pop();
+				}
+			}
+		}
+	}
+
+	def render(var dict) {
+		return self.root.render(dict);
+	}
+}
+
+Template = _Template;
+
+/*
+Value:
+{{ foo }} == dict['foo']
+
+{{ foo.bar }} == dict['foo']['bar']
+
+{% if foo }}
+hello
+{% end %}
+==
+if (dict['foo']) {
+	'hello'
+}
+
+{% for foo in bar %}
+{{foo}}
+{% end %}
+==
+for (var foo in dict['bar']) {
+	dict['foo'] = foo;
+	dict['foo'];
+}
+*/

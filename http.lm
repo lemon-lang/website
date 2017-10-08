@@ -1,0 +1,361 @@
+import 'os';
+import 'socket';
+import 'pcre.so';
+import 'template.lm';
+
+class HTTPRequest() {
+	var line;
+	var method;
+	var path;
+	var version;
+	var headers;
+	var body;
+	var state;
+	var length = 0;
+
+	var STATE_INIT = 0;
+	var STATE_HEADER = 1;
+	var STATE_FINISH = 2;
+	var STATE_ERROR = 3;
+
+	def __init__(var addrinfo) {
+		self.body = '';
+		self.length = 0;
+		self.buffer = '';
+		self.headers = {};
+		self.addrinfo = addrinfo;
+		self.state = HTTPRequest.STATE_INIT;
+	}
+
+	def parse(var buffer) {
+		var header, body;
+		if (self.state == HTTPRequest.STATE_INIT) {
+			if (self.buffer) {
+				buffer = self.buffer + buffer;
+			}
+			if ('\r\n\r\n' in buffer) {
+				header, body = buffer.split('\r\n\r\n', 1);
+
+				self.parse_header(header);
+
+				if (body) {
+					self.body = body;
+				}
+
+				if (self.state == HTTPRequest.STATE_HEADER) {
+					if ('Content-Length' in self.headers) {
+						self.length = integer(self.headers['Content-Length']);
+					}
+				}
+				if (self.method == 'GET' || self.body.__length__() == self.length) {
+					self.state = HTTPRequest.STATE_FINISH;
+				}
+			} else {
+				self.buffer += buffer;
+			}
+		} else if (self.state == HTTPRequest.STATE_HEADER) {
+			self.body += buffer;
+			if (self.body.__length__() >= self.length) {
+				self.state = HTTPRequest.STATE_FINISH;
+			}
+		}
+	}
+
+	def parse_header(var buffer) {
+		var line, header;
+
+		line, header = buffer.split('\r\n', 1);
+		if (!line) {
+			self.state = HTTPRequest.STATE_ERROR;
+		}
+
+		self.line = line;
+		self.method, self.path, self.version = line.split(' ');
+		if (!self.method || !self.path || !self.version) {
+			self.state = HTTPRequest.STATE_ERROR;
+		}
+
+		if (header) {
+			var k, v;
+
+			for (var line in header.split('\r\n')) {
+				k, v = line.split(':');
+				self.headers[k] = v;
+			}
+		}
+
+		self.state = HTTPRequest.STATE_HEADER;
+	}
+}
+
+class HTTPResponse() {
+	def __init__(var request, var code=200, var body='', var headers={}) {
+		self.request = request;
+		self.code = code;
+		self.body = body;
+		self.sent = 0;
+		self.buffer = '';
+
+		# default header
+		self.headers = {
+			'Connection': 'Close',
+			'Content-Type': 'text/plain; charset=utf-8',
+			'Content-Length': '0',
+		};
+
+		# update header from argument
+		for (var k in headers) {
+			self.headers[k] = headers[k];
+		}
+
+		self.headers['Content-Length'] = string(self.body.__length__());
+	}
+
+	def tostring() {
+		if (self.buffer) {
+			return self.buffer[self.sent:];
+		} else {
+			var header;
+			var headers = [];
+
+			headers.append('HTTP/1.1 {} OK'.format(self.code));
+			if (self.request.path.endswith('.html')) {
+				self.headers['Content-Type'] = 'text/html; charset=utf-8';
+			} else if (self.request.path.endswith('.jpg')) {
+				self.headers['Content-Type'] = 'image/jpeg';
+			} else if (self.request.path.endswith('.png')) {
+				self.headers['Content-Type'] = 'image/png';
+			}
+			for (var k in self.headers) {
+				header = '{}: {}'.format(k, self.headers[k]);
+				headers.append(header);
+			}
+
+			self.buffer = '{}\r\n\r\n{}'.format('\r\n'.join(headers), self.body);
+
+			return self.buffer;
+		}
+	}
+}
+
+class HTTPLog() {
+	def __init__(var request, var response) {
+		self.request = request;
+		self.response = response;
+	}
+
+	def print() {
+		var ip = self.request.addrinfo[0].trim();
+		var time = os.strftime("[%d/%b/%Y:%H:%M:%S %z]", os.gmtime(os.time()));
+		var line = self.request.line;
+		var code = self.response.code;
+		var bytes = string(self.response.body.__length__());
+
+		var referrer = '"-"';
+		if ('Referrer' in self.request.headers) {
+			referrer = '"{}"'.format(self.request.headers['Referrer'].trim());
+		}
+
+		var useragent = '"-"';
+		if ('User-Agent' in self.request.headers) {
+			useragent = '"{}"'.format(self.request.headers['User-Agent'].trim());
+		}
+
+		print(ip, '-', '-', time, line, code, bytes, referrer, useragent, '-');
+	}
+}
+
+class HTTPHandler() {
+	def __init__(var request) {
+		self.request = request;
+	}
+
+	def readfile(var path) {
+		var file;
+		var content;
+
+		try {
+			file = os.open(path, 'r');
+			content = os.read(file);
+			os.close(file);
+			return content;
+		} catch (Exception e) {
+			print(e);
+		}
+
+		return nil;
+	}
+
+	def render(var path, var dict = {}) {
+		var content = self.readfile(path);
+		if (content) {
+			var t = template.Template(self.readfile(path));
+			t.compile();
+			return t.render(dict);
+		}
+
+		return 'Not Found';
+	}
+}
+
+class HTTPStaticFileHandler(HTTPHandler) {
+	var currpath = os.realpath('.');
+
+	def GET() {
+		var path = self.request.path[1:];
+		var realpath = os.realpath(path);
+
+		if (!realpath || !realpath.startswith(self.currpath)) {
+			return nil;
+		}
+
+		return self.readfile(path);
+	}
+}
+
+class HTTPServer() {
+	def __init__(var application) {
+		self.connections = {};
+		self.application = application;
+	}
+
+	def open_socket() {
+		var flags;
+
+		var fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM);
+		socket.bind(fd, self.application.port);
+		socket.listen(fd);
+		flags = os.fcntl(fd, os.F_GETFL, 0);
+		os.fcntl(fd, os.F_GETFL, flags | os.O_NONBLOCK);
+		self.connections[fd] = nil;
+		self.serverfd = fd;
+
+		return fd;
+	}
+
+	def close_fd(var fd) {
+		socket.shutdown(fd);
+		os.close(fd);
+		delete self.connections[fd];
+	}
+
+	def send_all(var fd, var buffer) {
+		var i = 0;
+		while (i < buffer.__length__()) {
+			var len;
+			len = socket.send(fd, buffer[i:]);
+			if (len <= 0) {
+				break;
+			}
+			i += len;
+		}
+		return i;
+	}
+
+	def log(var request, var response) {
+		var log = HTTPLog(request, response);
+		log.print();
+	}
+
+	def dispatch(var fd, var request) {
+		var cls;
+		var handler;
+		var buffer;
+		var response;
+		var mimetype;
+
+		cls = self.application.handler_for_path(request.path);
+		if (cls) {
+			handler = cls(request);
+
+			if (handler.__has_attr__(request.method)) {
+				if (request.method == 'GET') {
+					buffer = handler.GET();
+				} else if (request.method == 'POST') {
+					buffer = handler.POST();
+				}
+				if (request.path.endswith('.css')) {
+					mimetype = 'text/css; charset=utf-8';
+				} else {
+					mimetype = 'text/html; charset=utf-8';
+				}
+
+				var handlers = {'Content-Type': mimetype};
+				if (buffer) {
+					response = HTTPResponse(request, body=buffer, headers=handlers);
+				} else {
+					response = HTTPResponse(request, code=404, body="Not Found");
+				}
+			} else {
+				response = HTTPResponse(request, code=405, body="Unsupport");
+			}
+		} else {
+			response = HTTPResponse(request, code=404, body="Not Found");
+		}
+
+		self.send_all(fd, response.tostring());
+		self.close_fd(fd);
+
+		self.log(request, response);
+	}
+
+	def serve_forever() {
+		var buffer;
+		var addrinfo;
+		var clientfd;
+		var serverfd = self.open_socket();
+
+		var rlist;
+		var wlist;
+		var xlist;
+		while (true) {
+			rlist = self.connections.keys();
+			wlist = [];
+			xlist = [];
+			rlist, wlist, xlist = os.select(rlist, wlist, xlist, 1000000);
+
+			for (var fd in rlist) {
+				if (fd == serverfd) {
+					clientfd, addrinfo = socket.accept(fd);
+					self.connections[clientfd] = HTTPRequest(addrinfo);
+				} else {
+					buffer = socket.recv(fd);
+					if (buffer) {
+						var request = self.connections[fd];
+						request.parse(buffer);
+						if (request.state == HTTPRequest.STATE_FINISH) {
+							self.dispatch(fd, request);
+						}
+
+						if (request.state == HTTPRequest.STATE_ERROR) {
+							self.close_fd(fd);
+						}
+					} else {
+						self.close_fd(fd);
+					}
+				}
+			}
+		}
+	}
+}
+
+class HTTPApplication() {
+	var port = 8003;
+
+	def __init__(var handlers, var port = 8003) {
+		self.port = port;
+		self.handlers = handlers;
+	}
+
+	def handler_for_path(var path) {
+		for (var route in self.handlers) {
+			var re = pcre.compile(route);
+			var match = re.exec(path);
+			if (match && match[0] == path) {
+				return self.handlers[route];
+			}
+		}
+
+		return nil;
+	}
+}

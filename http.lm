@@ -38,6 +38,10 @@ class HTTPRequest() {
 
 				self.parse_header(header);
 
+				if (self.state == HTTPRequest.STATE_ERROR) {
+					return;
+				}
+
 				if (body) {
 					self.body = body;
 				}

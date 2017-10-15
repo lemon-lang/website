@@ -13,13 +13,7 @@
  block Comment
 */
     </code></pre>
-    <h3>Variables</h3>
-    <pre class="prettyprint"><code class="lemon">
-var a; // declaration and assign nil to a
-var b = 42; // declaration and assign 42 to b
-var c, d; // declaration c and d
-    </code></pre>
-    <h3>Values</h3>
+    <h3>Value Types</h3>
     <pre class="prettyprint"><code class="lemon">
 a = nil; // value nil
 a = true; // boolean true
@@ -32,7 +26,7 @@ a = 'hello,world'; // string
 a = [1,2,3,4]; // array
 a = {'a': 1, 'b': 2}; // dictionary
     </code></pre>
-    <h3>Variable </h3>
+    <h3>Variables</h3>
     <pre class="prettyprint"><code class="lemon">
 /* Assignment */
 a = 42; // assign a to 42
@@ -41,7 +35,7 @@ a, b = ['hello', 'world']; // a = 'hello', b = 'world'
 a, b = [1, 2, 3, 4]; // a = 1, b = 2
 a, b, c, d = [1, 2]; // a = 1, b = 2, c = nil, d = nil
     </code></pre>
-    <h3>Conditions</h3>
+    <h3>Conditional Statements</h3>
     <pre class="prettyprint"><code class="lemon">
 if (a == 42) {
     print('solved');
@@ -61,7 +55,7 @@ if (a == 42) {
     print('unsolved');
 }
     </code></pre>
-    <h3>Loops </h3>
+    <h3>Loops</h3>
     <pre class="prettyprint"><code class="lemon">
 // while loop
 while (a < 42) {
@@ -102,7 +96,7 @@ def hello5(var **names) {
     }
 }
     </code></pre>
-    <h3>Calls</h3>
+    <h3>Function Calls</h3>
     <pre class="prettyprint"><code class="lemon">
 hello1(); // without arguments
 hello2(a, b); // with fixed number arguments
@@ -110,7 +104,7 @@ hello3(name = a); // with keyword argument
 hello4(*[a,b,c,d]); // with variable number arguments
 hello5(**{a: b, c: d}); // with variable keyword arguments
     </code></pre>
-    <h3>Class</h3>
+    <h3>Classes</h3>
     <pre class="prettyprint"><code class="lemon">
 class Hello1() {
     var name; // class attribute
@@ -122,12 +116,12 @@ class Hello2() {
     }
 }
     </code></pre>
-    <h3>Instance</h3>
+    <h3>Class Instances</h3>
     <pre class="prettyprint"><code class="lemon">
 a = world1();
 b = world2('John');
     </code></pre>
-    <h3>Exception</h3>
+    <h3>Exceptions</h3>
     <pre class="prettyprint"><code class="lemon">
 // throw
 throw Exception();
@@ -142,7 +136,7 @@ try {
     // run whatever exception happen or not
 }
     </code></pre>
-    <h3>Library</h3>
+    <h3>Libraries</h3>
     <pre class="prettyprint"><code class="lemon">
 import 'hello.lm'; // library name is `hello'
 

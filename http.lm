@@ -71,6 +71,7 @@ class HTTPRequest() {
 		line, header = buffer.split('\r\n', 1);
 		if (!line) {
 			self.state = HTTPRequest.STATE_ERROR;
+			return;
 		}
 
 		self.line = line;

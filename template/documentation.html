@@ -18,9 +18,9 @@
     </code></pre>
     <h3>Variables</h3>
     <pre class="prettyprint"><code class="lemon">    
-var a; // declaration and assign nil to a
-var b = 42; // declaration and assign 42 to b
-var c, d; // declaration c and d
+var a; // declare (by default, assigns to nil)
+var b = 42; // declare and assign value
+var c, d; // declare multiple of same type
     </code></pre>
     <h3>Value Types</h3>
     <pre class="prettyprint"><code class="lemon">
@@ -74,7 +74,7 @@ while (a < 42) {
 for (var i = 0; i < 42; i += 1) {
     a = i;
 }
-// for in loop
+// for in loop (for each)
 for (var i in [1,2,3,4]) {
     a = i;
 }
@@ -140,22 +140,22 @@ try {
 } catch (TypeError e) {
     // catch specific exception
 } catch (Exception e) {
-    // catch all exception
+    // catch all exceptions
 } finally {
-    // run whatever exception happen or not
+    // run regardless of exception
 }
     </code></pre>
     <h3>Libraries</h3>
     <pre class="prettyprint"><code class="lemon">
-import 'hello.lm'; // library name is `hello'
+import 'hello.lm'; // library name is 'hello'
 
 // import as
-import 'hello.lm' as hi; // library name is `hi'
+import 'hello.lm' as hi; // library name is 'hi'
 
-// import relative with current file
-import './hello.lm'; // library name is `hello'
+// import relative to the current file
+import './hello.lm'; // library name is 'hello'
 
-/* import will change every non-ANSI char to `_', such as */
+/* import will change every non-ANSI char to '_', such as */
 import 'hello-library.lm' // library name is hello_library
     </code></pre>
 {% end %}

@@ -2,3 +2,4 @@ require:
 	lemon
 	liblemon.so
 	pcre.so
+<p>C and C++ language used in this.</p>

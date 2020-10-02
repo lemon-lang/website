@@ -1,4 +1,4 @@
-require:
+Require:
 	lemon
 	liblemon.so
 	pcre.so

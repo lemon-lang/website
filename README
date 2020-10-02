@@ -1,4 +1,4 @@
-#lemon lang
+# lemon-lang
 require:
 	lemon
 	liblemon.so

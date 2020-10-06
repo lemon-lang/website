@@ -1,3 +1,9 @@
+LEMON PROGRAMMING LANGUAGE:
+     Lemon is an open source programming language.
+     Lemon's syntax is like C/C++ and Java with dynamic typing.
+     Everything is object, integer, number, function, class even type.
+     Lemon's implementation is 25k sloc ANSI C without dependencies.
+
 require:
 	lemon
 	liblemon.so
